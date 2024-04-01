@@ -153,8 +153,8 @@ impl<M: Manager> Drop for Object<M> {
                     pool.semaphore.add_permits(1);
                 }
                 ObjectState::Recycling | ObjectState::Ready => {
-                    info!("Object returned to pool");
-                    pool.available.fetch_add(1, Ordering::Relaxed);
+                    let avi = pool.available.fetch_add(1, Ordering::Relaxed);
+                    info!("Object returned to pool,available:{:?}",avi);
                     let obj = self.obj.take().unwrap();
                     {
                         let mut queue = pool.queue.lock().unwrap();
@@ -328,7 +328,7 @@ impl<M: Manager, W: From<Object<M>>> Pool<M, W> {
                         Ok(_) => break,
                         Err(e) => {
                             let avail = self.inner.available.fetch_sub(1, Ordering::Relaxed);
-                            info!("recycle failed:{:?},current avail:{:?}",e,avail);
+                            info!("recycle failed,current avail:{:?}",avail);
                             self.inner.size.fetch_sub(1, Ordering::Relaxed);
                             continue;
                         }
