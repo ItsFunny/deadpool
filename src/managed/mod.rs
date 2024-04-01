@@ -61,6 +61,7 @@ mod config;
 pub use self::config::{PoolConfig, Timeouts};
 mod errors;
 pub use errors::{PoolError, RecycleError, TimeoutType};
+use log::info;
 
 use crate::runtime::{Runtime, TimeoutError};
 pub use crate::Status;
@@ -135,17 +136,21 @@ impl<M: Manager> Drop for Object<M> {
         if let Some(pool) = self.pool.upgrade() {
             match self.state {
                 ObjectState::Waiting => {
+                    info!("Object dropped while waiting for creation");
                     pool.available.fetch_add(1, Ordering::Relaxed);
                 }
                 ObjectState::Receiving => {
+                    info!("Object dropped while receiving");
                     pool.available.fetch_add(1, Ordering::Relaxed);
                     pool.semaphore.add_permits(1);
                 }
                 ObjectState::Creating | ObjectState::Taken => {
+                    info!("Object dropped while creating");
                     pool.size.fetch_sub(1, Ordering::Relaxed);
                     pool.semaphore.add_permits(1);
                 }
                 ObjectState::Recycling | ObjectState::Ready => {
+                    info!("Object returned to pool");
                     pool.available.fetch_add(1, Ordering::Relaxed);
                     let obj = self.obj.take().unwrap();
                     {
