@@ -310,6 +310,7 @@ impl<M: Manager, W: From<Object<M>>> Pool<M, W> {
             };
             match inner_obj {
                 Some(inner_obj) => {
+                    info!("Object received from pool");
                     // Recycle existing object
                     obj.state = ObjectState::Recycling;
                     obj.obj = Some(inner_obj);
@@ -330,6 +331,7 @@ impl<M: Manager, W: From<Object<M>>> Pool<M, W> {
                     }
                 }
                 None => {
+                    info!("Creating new object");
                     // Create new object
                     obj.state = ObjectState::Creating;
                     self.inner.available.fetch_add(1, Ordering::Relaxed);
