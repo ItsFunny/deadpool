@@ -58,8 +58,11 @@ use async_trait::async_trait;
 use tokio::sync::{Semaphore, TryAcquireError};
 
 mod config;
+
 pub use self::config::{PoolConfig, Timeouts};
+
 mod errors;
+
 pub use errors::{PoolError, RecycleError, TimeoutType};
 use log::info;
 
@@ -297,7 +300,7 @@ impl<M: Manager, W: From<Object<M>>> Pool<M, W> {
                         .map_err(|_| PoolError::Closed)
                 },
             )
-            .await?
+                .await?
         };
 
         permit.forget();
@@ -320,11 +323,12 @@ impl<M: Manager, W: From<Object<M>>> Pool<M, W> {
                         self.inner.config.timeouts.recycle,
                         self.inner.manager.recycle(&mut obj),
                     )
-                    .await
+                        .await
                     {
                         Ok(_) => break,
-                        Err(_) => {
-                            self.inner.available.fetch_sub(1, Ordering::Relaxed);
+                        Err(e) => {
+                            let avail = self.inner.available.fetch_sub(1, Ordering::Relaxed);
+                            info!("recycle failed:{:?},current avail:{:?}",e,avail);
                             self.inner.size.fetch_sub(1, Ordering::Relaxed);
                             continue;
                         }
@@ -343,7 +347,7 @@ impl<M: Manager, W: From<Object<M>>> Pool<M, W> {
                             self.inner.config.timeouts.create,
                             self.inner.manager.create(),
                         )
-                        .await?,
+                            .await?,
                     );
                     break;
                 }
@@ -414,7 +418,7 @@ async fn apply_timeout<O, E>(
     runtime: &Runtime,
     timeout_type: TimeoutType,
     duration: Option<Duration>,
-    future: impl Future<Output = Result<O, impl Into<PoolError<E>>>>,
+    future: impl Future<Output=Result<O, impl Into<PoolError<E>>>>,
 ) -> Result<O, PoolError<E>> {
     match duration {
         Some(duration) => match runtime.timeout(duration, future).await {
